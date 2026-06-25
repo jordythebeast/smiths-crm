@@ -173,8 +173,10 @@ function JobCard({ job, labels }: { job: Job; labels: Record<JobStatus, string> 
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-mono font-bold bg-gray-100 text-gray-500 px-2 py-0.5 rounded tracking-wide">
+            #{job.job_number}
+          </span>
           <span className="font-semibold text-sm">{job.customer?.name || 'No customer'}</span>
-          <span className="text-gray-400 text-xs">#{job.job_number}</span>
           <StatusBadge status={job.status} />
           {overdueTasks.length > 0 && (
             <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">

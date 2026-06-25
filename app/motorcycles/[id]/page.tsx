@@ -3,7 +3,30 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import StatusBadge from '@/components/StatusBadge'
 import { ArrowLeft, Bike, User, ChevronRight } from 'lucide-react'
-import type { Job } from '@/lib/types'
+import type { Job, JobStatus } from '@/lib/types'
+
+const SERVICE_STATUS_LABELS: Record<JobStatus, string> = {
+  checked_in: 'In Workshop',
+  in_progress: 'In Workshop',
+  ready: 'Ready for Pickup',
+  checked_out: 'Service Complete',
+}
+const BUY_SELL_STATUS_LABELS: Record<JobStatus, string> = {
+  checked_in: 'In Stock',
+  in_progress: 'Being Prepped',
+  ready: 'For Sale',
+  checked_out: 'Sold',
+}
+
+function getBikeStatusStyle(label: string): string {
+  if (label === 'Ready for Pickup' || label === 'For Sale')
+    return 'bg-green-50 border-green-200 text-green-800'
+  if (label === 'In Workshop' || label === 'Being Prepped' || label === 'In Stock')
+    return 'bg-amber-50 border-amber-200 text-amber-800'
+  if (label === 'Sold')
+    return 'bg-gray-100 border-gray-200 text-gray-600'
+  return 'bg-gray-50 border-gray-200 text-gray-600'
+}
 
 export default async function BikeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -24,6 +47,29 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
   ])
 
   if (!bike) notFound()
+
+  const activeJob = jobs?.find((j) => j.status !== 'checked_out') ?? null
+  const lastJob = jobs?.[0] ?? null
+
+  let statusLabel = 'No jobs yet'
+  let statusSub: string | null = null
+  let statusJob: Job | null = null
+
+  if (activeJob) {
+    const labels = activeJob.job_type === 'buy_sell' ? BUY_SELL_STATUS_LABELS : SERVICE_STATUS_LABELS
+    statusLabel = labels[activeJob.status as JobStatus] ?? activeJob.status
+    statusSub = `${activeJob.job_type === 'buy_sell' ? 'Buy & Sell' : 'Service'} · Job #${activeJob.job_number}`
+    statusJob = activeJob as Job
+  } else if (lastJob) {
+    if (lastJob.job_type === 'buy_sell') {
+      statusLabel = 'Sold'
+      statusSub = `Sold · Job #${lastJob.job_number}`
+    } else {
+      statusLabel = 'With Owner'
+      statusSub = `Last service: Job #${lastJob.job_number}`
+    }
+    statusJob = lastJob as Job
+  }
 
   return (
     <div>
@@ -94,6 +140,22 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
               <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Notes</p>
               <p className="text-sm text-gray-700">{bike.notes}</p>
             </div>
+          )}
+        </div>
+
+        {/* Current Status */}
+        <div className={`card p-4 border ${getBikeStatusStyle(statusLabel)}`}>
+          <p className="text-xs uppercase tracking-wider font-medium mb-2 opacity-60">Current Status</p>
+          {statusJob ? (
+            <Link href={`/jobs/${statusJob.id}`} className="flex items-center justify-between group">
+              <div>
+                <p className="font-bold text-base">{statusLabel}</p>
+                {statusSub && <p className="text-xs mt-0.5 opacity-70">{statusSub}</p>}
+              </div>
+              <ChevronRight size={16} className="opacity-40 group-hover:opacity-80 shrink-0" />
+            </Link>
+          ) : (
+            <p className="font-bold text-base">{statusLabel}</p>
           )}
         </div>
 

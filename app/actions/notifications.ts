@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 function getWebPush() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -36,6 +37,16 @@ export async function unsubscribeFromPush(endpoint: string) {
 
 export async function sendPushToAll(payload: { title: string; body: string; url?: string }) {
   const supabase = await createClient()
+
+  // Save to notification history
+  try {
+    await supabase.from('notifications').insert({
+      title: payload.title,
+      body: payload.body,
+      url: payload.url || null,
+    })
+  } catch { /* ignore if table doesn't exist yet */ }
+
   const { data: subs } = await supabase.from('push_subscriptions').select('*')
   if (!subs?.length) return
 
@@ -55,4 +66,29 @@ export async function sendPushToAll(payload: { title: string; body: string; url?
       }
     })
   )
+}
+
+export type NotificationRow = {
+  id: string
+  title: string
+  body: string | null
+  url: string | null
+  read: boolean
+  created_at: string
+}
+
+export async function getNotifications(): Promise<NotificationRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(30)
+  return (data as NotificationRow[]) || []
+}
+
+export async function markAllNotificationsRead() {
+  const supabase = await createClient()
+  await supabase.from('notifications').update({ read: true }).eq('read', false)
+  revalidatePath('/')
 }

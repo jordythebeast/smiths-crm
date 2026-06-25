@@ -17,10 +17,10 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-56 bg-black min-h-screen shrink-0">
-      <div className="px-5 py-6 border-b border-gray-800">
+      <Link href="/" className="px-5 py-6 border-b border-gray-800 block hover:opacity-80 transition-opacity">
         <div className="text-red-600 font-black text-xl tracking-tight">SMITH'S</div>
         <div className="text-gray-400 text-xs font-medium tracking-widest uppercase mt-0.5">Motorcycles CRM</div>
-      </div>
+      </Link>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {nav.map(({ href, label, icon: Icon }) => {

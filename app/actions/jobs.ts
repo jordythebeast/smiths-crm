@@ -185,20 +185,24 @@ export async function updateJobStatus(jobId: string, status: JobStatus) {
 export async function updateJobNotes(jobId: string, formData: FormData) {
   const supabase = await createClient()
 
-  const { error } = await supabase
-    .from('jobs')
-    .update({
-      work_performed: (formData.get('work_performed') as string) || null,
-      damage_notes: (formData.get('damage_notes') as string) || null,
-      parts_cost: formData.get('parts_cost') ? Number(formData.get('parts_cost')) : null,
-      labour_cost: formData.get('labour_cost') ? Number(formData.get('labour_cost')) : null,
-      tax_rate: formData.get('tax_rate') ? Number(formData.get('tax_rate')) : 15,
-      final_cost: formData.get('final_cost') ? Number(formData.get('final_cost')) : null,
-      odometer_out: formData.get('odometer_out') ? Number(formData.get('odometer_out')) : null,
-      customer_acknowledged: formData.get('customer_acknowledged') === 'on',
-    })
-    .eq('id', jobId)
+  const updateData: Record<string, unknown> = {
+    work_performed: (formData.get('work_performed') as string) || null,
+    damage_notes: (formData.get('damage_notes') as string) || null,
+    parts_cost: formData.get('parts_cost') ? Number(formData.get('parts_cost')) : null,
+    labour_cost: formData.get('labour_cost') ? Number(formData.get('labour_cost')) : null,
+    tax_rate: formData.get('tax_rate') ? Number(formData.get('tax_rate')) : 15,
+    final_cost: formData.get('final_cost') ? Number(formData.get('final_cost')) : null,
+    odometer_out: formData.get('odometer_out') ? Number(formData.get('odometer_out')) : null,
+    customer_acknowledged: formData.get('customer_acknowledged') === 'on',
+  }
 
+  // For buy & sell jobs, also update the bought-for price
+  const estimatedCostStr = formData.get('estimated_cost') as string
+  if (estimatedCostStr && !isNaN(Number(estimatedCostStr)) && estimatedCostStr !== '') {
+    updateData.estimated_cost = Number(estimatedCostStr)
+  }
+
+  const { error } = await supabase.from('jobs').update(updateData).eq('id', jobId)
   if (error) throw new Error(error.message)
 
   revalidatePath(`/jobs/${jobId}`)

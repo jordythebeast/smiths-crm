@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { updateJobNotes } from '@/app/actions/jobs'
 import type { Job } from '@/lib/types'
+import { CheckCircle, AlertCircle } from 'lucide-react'
 
 function SaveButton() {
   const { pending } = useFormStatus()
@@ -20,7 +21,9 @@ export default function JobNotesForm({ job }: { job: Job }) {
 
   const [parts, setParts] = useState(job.parts_cost ? String(job.parts_cost) : '')
   const [labour, setLabour] = useState(job.labour_cost ? String(job.labour_cost) : '')
-  const [taxRate] = useState(job.tax_rate ?? 15)
+  const [taxRate, setTaxRate] = useState(job.tax_rate ?? 15)
+  const [boughtFor, setBoughtFor] = useState(job.estimated_cost ? String(job.estimated_cost) : '')
+  const [acknowledged, setAcknowledged] = useState(job.customer_acknowledged ?? false)
 
   const partsNum = parseFloat(parts) || 0
   const labourNum = parseFloat(labour) || 0
@@ -29,8 +32,8 @@ export default function JobNotesForm({ job }: { job: Job }) {
   const total = subtotal + taxAmount
 
   const soldFor = job.final_cost ? Number(job.final_cost) : 0
-  const boughtFor = job.estimated_cost ? Number(job.estimated_cost) : 0
-  const margin = soldFor - boughtFor
+  const boughtForNum = parseFloat(boughtFor) || 0
+  const margin = soldFor - boughtForNum
 
   return (
     <form action={action} className="space-y-4">
@@ -56,13 +59,21 @@ export default function JobNotesForm({ job }: { job: Job }) {
         />
       </div>
 
-      {/* ── Invoice section ── */}
+      {/* Invoice section */}
       {isBuySell ? (
         <div className="bg-gray-50 rounded-lg p-4 space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Buy &amp; Sell</p>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Bought for</span>
-            <span className="font-semibold">R {boughtFor.toFixed(2)}</span>
+          <div>
+            <label className="label">Bought for (R)</label>
+            <input
+              className="input"
+              name="estimated_cost"
+              type="number"
+              step="0.01"
+              value={boughtFor}
+              onChange={(e) => setBoughtFor(e.target.value)}
+              placeholder="0.00"
+            />
           </div>
           <div>
             <label className="label">Sold for (R)</label>
@@ -75,13 +86,12 @@ export default function JobNotesForm({ job }: { job: Job }) {
               placeholder="0.00"
             />
           </div>
-          {soldFor > 0 && (
+          {(boughtForNum > 0 || soldFor > 0) && (
             <div className={`flex justify-between text-sm font-semibold pt-2 border-t border-gray-200 ${margin >= 0 ? 'text-green-700' : 'text-red-600'}`}>
               <span>Margin</span>
               <span>{margin >= 0 ? '+' : ''}R {margin.toFixed(2)}</span>
             </div>
           )}
-          {/* Hidden passthrough fields not used for buy_sell */}
           <input type="hidden" name="parts_cost" value="" />
           <input type="hidden" name="labour_cost" value="" />
           <input type="hidden" name="tax_rate" value="0" />
@@ -116,6 +126,21 @@ export default function JobNotesForm({ job }: { job: Job }) {
             </div>
           </div>
 
+          <div className="flex items-center gap-3">
+            <label className="label mb-0 shrink-0 text-xs">VAT rate (%)</label>
+            <input
+              className="input w-20 text-center text-sm"
+              name="tax_rate"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={taxRate}
+              onChange={(e) => setTaxRate(Number(e.target.value))}
+            />
+            <span className="text-xs text-gray-400">Standard SA VAT is 15%</span>
+          </div>
+
           {(partsNum > 0 || labourNum > 0) && (
             <div className="space-y-1.5 pt-1 border-t border-gray-200 text-sm">
               <div className="flex justify-between text-gray-500">
@@ -133,9 +158,8 @@ export default function JobNotesForm({ job }: { job: Job }) {
             </div>
           )}
 
-          {/* Submit the computed total */}
           <input type="hidden" name="final_cost" value={(subtotal > 0 ? total : (job.final_cost ?? '')).toString()} />
-          <input type="hidden" name="tax_rate" value={String(taxRate)} />
+          <input type="hidden" name="estimated_cost" value="" />
         </div>
       )}
 
@@ -152,18 +176,34 @@ export default function JobNotesForm({ job }: { job: Job }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-        <input
-          type="checkbox"
-          id="customer_acknowledged"
-          name="customer_acknowledged"
-          defaultChecked={job.customer_acknowledged}
-          className="w-5 h-5 rounded text-red-600 focus:ring-red-600"
-        />
-        <label htmlFor="customer_acknowledged" className="text-sm font-medium text-gray-700">
-          Customer acknowledged bike condition
-        </label>
-      </div>
+      {/* Customer acknowledged — prominent toggle */}
+      <button
+        type="button"
+        onClick={() => setAcknowledged(!acknowledged)}
+        className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-left ${
+          acknowledged
+            ? 'bg-green-50 border-green-300'
+            : 'bg-amber-50 border-amber-300'
+        }`}
+      >
+        {acknowledged
+          ? <CheckCircle size={20} className="text-green-600 shrink-0" />
+          : <AlertCircle size={20} className="text-amber-500 shrink-0" />
+        }
+        <div>
+          <p className={`text-sm font-semibold ${acknowledged ? 'text-green-800' : 'text-amber-800'}`}>
+            {acknowledged
+              ? 'Customer acknowledged bike condition'
+              : 'Customer has NOT acknowledged bike condition'}
+          </p>
+          <p className={`text-xs mt-0.5 ${acknowledged ? 'text-green-600' : 'text-amber-600'}`}>
+            {acknowledged
+              ? 'Tap to unmark'
+              : 'Tap to confirm customer has seen and agreed to the bike condition'}
+          </p>
+        </div>
+      </button>
+      <input type="hidden" name="customer_acknowledged" value={acknowledged ? 'on' : ''} />
 
       <SaveButton />
     </form>

@@ -4,6 +4,64 @@ import StatusBadge from '@/components/StatusBadge'
 import { Wrench, Users, CheckCircle, AlertCircle, Plus, Calendar } from 'lucide-react'
 import type { Job, Task } from '@/lib/types'
 
+type TaskWithJob = Task & { job?: { id: string; job_number: number; customer?: { name: string } } }
+
+function dayKey(dateStr: string): string {
+  return dateStr // already 'YYYY-MM-DD'
+}
+
+function todayKey(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function tomorrowKey(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+}
+
+function groupTasksByDay(tasks: TaskWithJob[]): Array<{ label: string; tasks: TaskWithJob[]; color: string }> {
+  const today = todayKey()
+  const tomorrow = tomorrowKey()
+
+  const overdue: TaskWithJob[] = []
+  const byDay: Record<string, TaskWithJob[]> = {}
+
+  for (const t of tasks) {
+    if (!t.due_date) continue
+    if (t.due_date < today) {
+      overdue.push(t)
+    } else {
+      if (!byDay[t.due_date]) byDay[t.due_date] = []
+      byDay[t.due_date].push(t)
+    }
+  }
+
+  const groups: Array<{ label: string; tasks: TaskWithJob[]; color: string }> = []
+
+  if (overdue.length) {
+    groups.push({ label: 'Overdue', tasks: overdue, color: 'red' })
+  }
+
+  const sortedDays = Object.keys(byDay).sort()
+  for (const day of sortedDays) {
+    let label: string
+    if (day === today) {
+      label = 'Today'
+    } else if (day === tomorrow) {
+      label = 'Tomorrow'
+    } else {
+      label = new Date(day + 'T12:00:00').toLocaleDateString('en-ZA', {
+        weekday: 'long', day: 'numeric', month: 'short',
+      })
+    }
+    const color = day === today ? 'amber' : 'blue'
+    groups.push({ label, tasks: byDay[day], color })
+  }
+
+  return groups
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -25,7 +83,7 @@ export default async function DashboardPage() {
       .not('due_date', 'is', null)
       .lte('due_date', endOfWeek.toISOString().split('T')[0])
       .order('due_date', { ascending: true })
-      .limit(10),
+      .limit(20),
   ])
 
   const activeJobs = jobs || []
@@ -39,6 +97,14 @@ export default async function DashboardPage() {
     { label: 'In Progress', value: inProgress.length, icon: AlertCircle, href: '/jobs?status=in_progress' },
     { label: 'Customers', value: customerCount ?? 0, icon: Users, href: '/customers' },
   ]
+
+  const taskGroups = groupTasksByDay((upcomingTasks || []) as TaskWithJob[])
+
+  const colorMap: Record<string, { dot: string; label: string; dateText: string }> = {
+    red:   { dot: 'bg-red-500',   label: 'text-red-600',   dateText: 'text-red-500' },
+    amber: { dot: 'bg-amber-400', label: 'text-amber-700', dateText: 'text-amber-600' },
+    blue:  { dot: 'bg-blue-400',  label: 'text-blue-700',  dateText: 'text-blue-500' },
+  }
 
   return (
     <div>
@@ -69,33 +135,42 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        {/* Tasks due this week */}
-        {(upcomingTasks?.length ?? 0) > 0 && (
+        {/* This week at a glance */}
+        {taskGroups.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
               <Calendar size={14} />
-              Due This Week
+              This Week at a Glance
             </h2>
-            <div className="card divide-y divide-gray-100">
-              {upcomingTasks!.map((task: Task & { job?: { id: string; job_number: number; customer?: { name: string } } }) => {
-                const isOverdue = task.due_date ? new Date(task.due_date) < new Date() : false
+            <div className="space-y-3">
+              {taskGroups.map(({ label, tasks, color }) => {
+                const c = colorMap[color] ?? colorMap.blue
                 return (
-                  <Link
-                    key={task.id}
-                    href={`/jobs/${task.job?.id}`}
-                    className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors block"
-                  >
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${isOverdue ? 'bg-red-500' : 'bg-amber-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{task.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {task.job?.customer?.name} · Job #{task.job?.job_number}
-                      </p>
+                  <div key={label}>
+                    <p className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${c.label}`}>
+                      {label} ({tasks.length})
+                    </p>
+                    <div className="card divide-y divide-gray-100">
+                      {tasks.map((task) => (
+                        <Link
+                          key={task.id}
+                          href={`/jobs/${task.job?.id}`}
+                          className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors block"
+                        >
+                          <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${c.dot}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800">{task.title}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {task.job?.customer?.name} · Job #{task.job?.job_number}
+                            </p>
+                          </div>
+                          <span className={`text-xs font-medium shrink-0 ${c.dateText}`}>
+                            {new Date(task.due_date! + 'T12:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                          </span>
+                        </Link>
+                      ))}
                     </div>
-                    <span className={`text-xs font-medium shrink-0 ${isOverdue ? 'text-red-500' : 'text-amber-600'}`}>
-                      {new Date(task.due_date! + 'T12:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </Link>
+                  </div>
                 )
               })}
             </div>

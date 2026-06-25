@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import StatusBadge from '@/components/StatusBadge'
+import SearchInput from '@/components/SearchInput'
+import { Suspense } from 'react'
 import type { Job, JobStatus } from '@/lib/types'
 
 const STATUS_ORDER: JobStatus[] = ['checked_in', 'in_progress', 'ready', 'checked_out']
@@ -20,9 +22,9 @@ const BUY_SELL_LABELS: Record<JobStatus, string> = {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string }>
+  searchParams: Promise<{ status?: string; type?: string; q?: string; period?: string }>
 }) {
-  const { status: filterStatus, type: viewType } = await searchParams
+  const { status: filterStatus, type: viewType, q, period } = await searchParams
   const isBuySell = viewType === 'buy_sell'
   const supabase = await createClient()
 
@@ -36,7 +38,27 @@ export default async function JobsPage({
     query = query.eq('status', filterStatus)
   }
 
-  const { data: jobs } = await query
+  // Period filter for completed jobs
+  if (filterStatus === 'checked_out' && period && period !== 'all') {
+    const cutoff = new Date()
+    if (period === 'week') cutoff.setDate(cutoff.getDate() - 7)
+    else if (period === 'month') cutoff.setDate(cutoff.getDate() - 30)
+    query = query.gte('check_out_date', cutoff.toISOString())
+  }
+
+  const { data: rawJobs } = await query
+
+  // Client-side search filter
+  const searchQ = (q ?? '').toLowerCase().trim()
+  const jobs = searchQ
+    ? (rawJobs || []).filter(
+        (j) =>
+          j.customer?.name?.toLowerCase().includes(searchQ) ||
+          String(j.job_number).includes(searchQ) ||
+          j.bike?.make?.toLowerCase().includes(searchQ) ||
+          j.bike?.model?.toLowerCase().includes(searchQ)
+      )
+    : rawJobs || []
 
   const labels = isBuySell ? BUY_SELL_LABELS : SERVICE_LABELS
 
@@ -44,7 +66,7 @@ export default async function JobsPage({
     (acc, s) => ({ ...acc, [s]: [] }),
     {} as Record<JobStatus, Job[]>
   )
-  for (const job of jobs || []) {
+  for (const job of jobs) {
     if (grouped[job.status as JobStatus]) {
       grouped[job.status as JobStatus].push(job as Job)
     }
@@ -53,6 +75,13 @@ export default async function JobsPage({
   const activeStatuses: JobStatus[] = filterStatus
     ? [filterStatus as JobStatus]
     : ['checked_in', 'in_progress', 'ready']
+
+  // Floor value: sum of bought-for price on non-sold buy & sell bikes
+  const floorValue = isBuySell && !filterStatus
+    ? jobs.filter((j) => j.status !== 'checked_out').reduce((sum, j) => sum + Number(j.estimated_cost || 0), 0)
+    : 0
+
+  const typeBase = isBuySell ? '?type=buy_sell' : ''
 
   return (
     <div>
@@ -97,7 +126,47 @@ export default async function JobsPage({
         ))}
       </div>
 
+      {/* Search bar */}
+      <div className="px-4 pt-3 pb-1">
+        <Suspense>
+          <SearchInput placeholder="Search by customer, job number or bike..." />
+        </Suspense>
+      </div>
+
       <div className="page-content space-y-6">
+
+        {/* Floor value total for buy & sell active stock */}
+        {isBuySell && !filterStatus && floorValue > 0 && (
+          <div className="card p-4 bg-gray-50 flex items-center justify-between">
+            <span className="text-sm text-gray-500 font-medium">Floor value (active stock)</span>
+            <span className="text-lg font-bold">R {floorValue.toFixed(0)}</span>
+          </div>
+        )}
+
+        {/* Period filter for completed */}
+        {filterStatus === 'checked_out' && (
+          <div className="flex gap-2">
+            {(['week', 'month', 'all'] as const).map((p) => {
+              const label = p === 'week' ? 'This week' : p === 'month' ? 'This month' : 'All time'
+              const href = `/jobs${typeBase ? typeBase + '&' : '?'}status=checked_out${p !== 'all' ? '&period=' + p : ''}`
+              const active = (p === 'all' && !period) || period === p
+              return (
+                <Link
+                  key={p}
+                  href={href}
+                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                    active
+                      ? 'border-gray-800 bg-gray-800 text-white'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-400'
+                  }`}
+                >
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        )}
+
         {activeStatuses.map((status) => {
           const statusJobs = grouped[status]
           if (!statusJobs.length && !filterStatus) return null
@@ -134,11 +203,13 @@ export default async function JobsPage({
         {!jobs?.length && (
           <div className="card p-8 text-center">
             <p className="text-gray-500 font-medium">
-              {isBuySell ? 'No buy & sell bikes yet' : 'No active jobs'}
+              {searchQ ? 'No results found' : isBuySell ? 'No buy & sell bikes yet' : 'No active jobs'}
             </p>
-            <Link href="/jobs/new" className="btn-primary inline-flex items-center gap-2 mt-4">
-              {isBuySell ? 'Add a Buy & Sell Bike' : 'Check In a Bike'}
-            </Link>
+            {!searchQ && (
+              <Link href="/jobs/new" className="btn-primary inline-flex items-center gap-2 mt-4">
+                {isBuySell ? 'Add a Buy & Sell Bike' : 'Check In a Bike'}
+              </Link>
+            )}
           </div>
         )}
       </div>

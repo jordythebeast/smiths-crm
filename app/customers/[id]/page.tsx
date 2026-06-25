@@ -30,11 +30,17 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           <Link href="/customers" className="text-gray-400 hover:text-black transition-colors">
             <ArrowLeft size={20} />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">{customer.name.charAt(0).toUpperCase()}</span>
             </div>
             <h1 className="text-xl font-bold">{customer.name}</h1>
+            <Link
+              href={`/customers/${customer.id}/edit`}
+              className="ml-auto text-sm text-gray-500 hover:text-black border border-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Edit
+            </Link>
           </div>
         </div>
 

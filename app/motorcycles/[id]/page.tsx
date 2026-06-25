@@ -78,16 +78,22 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
           <Link href="/motorcycles" className="text-gray-400 hover:text-black transition-colors">
             <ArrowLeft size={20} />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
             <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
               <Bike size={18} className="text-gray-400" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl font-bold leading-tight">
                 {bike.year ? `${bike.year} ` : ''}{bike.make} {bike.model}
               </h1>
               {bike.color && <p className="text-sm text-gray-500">{bike.color}</p>}
             </div>
+            <Link
+              href={`/motorcycles/${bike.id}/edit`}
+              className="text-sm text-gray-500 hover:text-black border border-gray-200 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+            >
+              Edit
+            </Link>
           </div>
         </div>
 

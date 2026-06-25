@@ -7,8 +7,9 @@ import JobStatusActions from '@/components/JobStatusActions'
 import JobNotesForm from '@/components/JobNotesForm'
 import TaskList from '@/components/TaskList'
 import BuyerSection from '@/components/BuyerSection'
+import CallLog from '@/components/CallLog'
 import { ArrowLeft, Bike, MessageCircle } from 'lucide-react'
-import { whatsappUrl, readyMessage } from '@/lib/whatsapp'
+import { whatsappUrl, statusMessage } from '@/lib/whatsapp'
 import type { Job } from '@/lib/types'
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +18,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   const { data: job } = await supabase
     .from('jobs')
-    .select('*, bike:bikes(*), customer:customers(*), photos:job_photos(*), tasks(*)')
+    .select('*, bike:bikes(*), customer:customers(*), photos:job_photos(*), tasks(*), call_log:call_log(*)')
     .eq('id', id)
     .single()
 
@@ -29,8 +30,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     ? `${j.bike.year ? j.bike.year + ' ' : ''}${j.bike.make} ${j.bike.model}`
     : 'bike'
 
-  const waMessage = j.status === 'ready' && j.customer && j.bike
-    ? readyMessage(j.customer.name.split(' ')[0], j.bike)
+  const firstName = j.customer?.name.split(' ')[0] ?? ''
+  const waMessage = j.customer && j.bike
+    ? statusMessage(firstName, j.bike, j.status, j.job_type)
     : undefined
 
   return (
@@ -58,18 +60,24 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <div className="page-content space-y-4">
 
         {/* Status actions */}
-        <JobStatusActions jobId={j.id} currentStatus={j.status} />
+        <JobStatusActions jobId={j.id} currentStatus={j.status} jobType={j.job_type} />
 
-        {/* WhatsApp prompt when ready */}
-        {j.status === 'ready' && j.customer?.phone && (
+        {/* WhatsApp — always visible when customer has phone */}
+        {j.customer?.phone && j.status !== 'checked_out' && (
           <a
             href={whatsappUrl(j.customer.phone, waMessage)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg text-sm transition-colors"
+            className={`flex items-center justify-center gap-2 w-full font-semibold py-3 rounded-lg text-sm transition-colors ${
+              j.status === 'ready'
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-green-50 hover:bg-green-100 text-green-800 border border-green-200'
+            }`}
           >
             <MessageCircle size={16} />
-            WhatsApp {j.customer.name.split(' ')[0]} — Bike is ready!
+            {j.status === 'ready'
+              ? `WhatsApp ${firstName} — Bike is ready!`
+              : `WhatsApp ${firstName}`}
           </a>
         )}
 
@@ -151,6 +159,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             <p className="text-sm text-amber-900 whitespace-pre-wrap">{j.damage_notes}</p>
           </div>
         )}
+
+        {/* Call log */}
+        <div className="card p-4">
+          <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3">Call Log / Notes</p>
+          <CallLog jobId={j.id} initialNotes={j.call_log || []} />
+        </div>
 
         {/* Photos */}
         <div className="card p-4">

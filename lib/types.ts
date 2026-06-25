@@ -62,6 +62,14 @@ export interface Job {
   customer?: Customer
   photos?: JobPhoto[]
   tasks?: Task[]
+  call_log?: CallNote[]
+}
+
+export interface CallNote {
+  id: string
+  job_id: string
+  note: string
+  created_at: string
 }
 
 export interface JobPhoto {

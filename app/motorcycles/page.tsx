@@ -7,7 +7,7 @@ export default async function MotorcyclesPage() {
 
   const { data: bikes } = await supabase
     .from('bikes')
-    .select('*, customer:customers(id, name)')
+    .select('*, customer:customers(id, name), jobs(id, status, job_type, created_at)')
     .order('make')
 
   return (

@@ -1,19 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Wrench, Users, Bike } from 'lucide-react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { LayoutDashboard, Wrench, Users, Bike, Receipt } from 'lucide-react'
 import clsx from 'clsx'
 
 const nav = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/jobs', label: 'Workshop', icon: Wrench },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/motorcycles', label: 'Motorcycles', icon: Bike },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/jobs', label: 'Workshop', icon: Wrench, exact: false },
+  { href: '/customers', label: 'Customers', icon: Users, exact: false },
+  { href: '/motorcycles', label: 'Motorcycles', icon: Bike, exact: false },
+  { href: '/jobs?type=accounting', label: 'Accounting', icon: Receipt, exact: false, accountingOnly: true },
 ]
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const isAccounting = pathname === '/jobs' && searchParams.get('type') === 'accounting'
 
   return (
     <aside className="hidden md:flex flex-col w-56 bg-black min-h-screen shrink-0">
@@ -23,8 +26,15 @@ export default function Sidebar() {
       </Link>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+        {nav.map(({ href, label, icon: Icon, exact, accountingOnly }) => {
+          let active: boolean
+          if (accountingOnly) {
+            active = isAccounting
+          } else if (exact) {
+            active = pathname === '/'
+          } else {
+            active = pathname.startsWith(href.split('?')[0]) && !isAccounting
+          }
           return (
             <Link
               key={href}

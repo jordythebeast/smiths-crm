@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Suspense } from 'react'
 import './globals.css'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
@@ -17,13 +18,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <div className="flex min-h-screen">
-          <Sidebar />
+          <Suspense><Sidebar /></Suspense>
           <main className="flex-1 min-w-0 pb-20 md:pb-0 flex flex-col">
             <TopBar />
             {children}
           </main>
         </div>
-        <MobileNav />
+        <Suspense><MobileNav /></Suspense>
       </body>
     </html>
   )

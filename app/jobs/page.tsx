@@ -4,6 +4,7 @@ import StatusBadge from '@/components/StatusBadge'
 import SearchInput from '@/components/SearchInput'
 import AccountingView from '@/components/AccountingView'
 import type { AccountingJob } from '@/components/AccountingView'
+import AccountingPeriodFilter from '@/components/AccountingPeriodFilter'
 import { Suspense } from 'react'
 import type { Job, JobStatus } from '@/lib/types'
 
@@ -20,13 +21,6 @@ const BUY_SELL_LABELS: Record<JobStatus, string> = {
   ready: 'For Sale',
   checked_out: 'Sold',
 }
-
-const ACCOUNTING_PERIODS = [
-  { value: 'month',      label: 'This month' },
-  { value: 'last_month', label: 'Last month' },
-  { value: 'year',       label: 'This year' },
-  { value: 'all',        label: 'All time' },
-]
 
 function getPeriodCutoff(period: string): { from: string; to?: string } | null {
   const now = new Date()
@@ -49,9 +43,9 @@ function getPeriodCutoff(period: string): { from: string; to?: string } | null {
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string; q?: string; period?: string }>
+  searchParams: Promise<{ status?: string; type?: string; q?: string; period?: string; from?: string; to?: string }>
 }) {
-  const { status: filterStatus, type: viewType, q, period } = await searchParams
+  const { status: filterStatus, type: viewType, q, period, from: fromParam, to: toParam } = await searchParams
   const isBuySell = viewType === 'buy_sell'
   const isAccounting = viewType === 'accounting'
   const supabase = await createClient()
@@ -59,7 +53,7 @@ export default async function JobsPage({
   // --- Accounting view ---
   if (isAccounting) {
     const activePeriod = period ?? 'month'
-    const cutoff = getPeriodCutoff(activePeriod)
+    const cutoff = activePeriod === 'custom' ? null : getPeriodCutoff(activePeriod)
 
     let acctQuery = supabase
       .from('jobs')
@@ -67,7 +61,14 @@ export default async function JobsPage({
       .eq('status', 'checked_out')
       .order('check_out_date', { ascending: false })
 
-    if (cutoff) {
+    if (activePeriod === 'custom' && fromParam && toParam) {
+      // toParam is a date (YYYY-MM-DD) — add one day so "to" is inclusive
+      const toInclusive = new Date(toParam)
+      toInclusive.setDate(toInclusive.getDate() + 1)
+      acctQuery = acctQuery
+        .gte('check_out_date', new Date(fromParam).toISOString())
+        .lt('check_out_date', toInclusive.toISOString())
+    } else if (cutoff) {
       acctQuery = acctQuery.gte('check_out_date', cutoff.from)
       if (cutoff.to) acctQuery = acctQuery.lt('check_out_date', cutoff.to)
     }
@@ -94,22 +95,11 @@ export default async function JobsPage({
         </div>
 
         <div className="page-content space-y-4">
-          {/* Period filter */}
-          <div className="flex gap-2 flex-wrap">
-            {ACCOUNTING_PERIODS.map((p) => (
-              <Link
-                key={p.value}
-                href={`/jobs?type=accounting&period=${p.value}`}
-                className={`text-sm px-4 py-2 rounded-full border transition-colors ${
-                  activePeriod === p.value
-                    ? 'border-gray-800 bg-gray-800 text-white'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-400'
-                }`}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
+          <AccountingPeriodFilter
+            activePeriod={activePeriod}
+            activeFrom={fromParam}
+            activeTo={toParam}
+          />
 
           <AccountingView jobs={(acctJobs ?? []) as unknown as AccountingJob[]} period={activePeriod} />
         </div>

@@ -83,6 +83,7 @@ interface CreateJobParams {
   damage_notes?: string
   odometer_in?: number | null
   estimated_cost?: number | null
+  customer_acknowledged?: boolean
 }
 
 export async function createJobReturnId(params: CreateJobParams): Promise<string> {
@@ -133,6 +134,7 @@ export async function createJobReturnId(params: CreateJobParams): Promise<string
       damage_notes: params.damage_notes || null,
       odometer_in: params.odometer_in || null,
       estimated_cost: params.estimated_cost || null,
+      customer_acknowledged: params.customer_acknowledged ?? false,
     })
     .select()
     .single()

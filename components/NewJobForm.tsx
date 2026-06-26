@@ -4,8 +4,9 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createJobReturnId } from '@/app/actions/jobs'
 import PhotoUpload from '@/components/PhotoUpload'
-import { ChevronRight, ChevronLeft, CheckCircle, Wrench, Tag } from 'lucide-react'
+import { ChevronRight, ChevronLeft, CheckCircle, AlertCircle, Wrench, Tag } from 'lucide-react'
 import { COMMON_MAKES } from '@/lib/bike-makes'
+import NumberInput from '@/components/NumberInput'
 
 interface Customer { id: string; name: string; phone: string | null }
 interface Bike { id: string; customer_id: string | null; make: string; model: string; year: number | null; registration: string | null; color: string | null }
@@ -46,6 +47,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
     odometer_in: '',
     estimated_cost: '',
   })
+  const [customerAcknowledged, setCustomerAcknowledged] = useState(false)
 
   // Step 4: created job id for photo upload
   const [createdJobId, setCreatedJobId] = useState<string | null>(null)
@@ -88,6 +90,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
           damage_notes: jobDetails.damage_notes || undefined,
           odometer_in: jobDetails.odometer_in ? Number(jobDetails.odometer_in) : null,
           estimated_cost: jobDetails.estimated_cost ? Number(jobDetails.estimated_cost) : null,
+          customer_acknowledged: customerAcknowledged,
         })
         setCreatedJobId(jobId)
         setStep(4)
@@ -379,26 +382,60 @@ export default function NewJobForm({ customers, bikes }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Odometer (km)</label>
-              <input
+              <NumberInput
                 className="input"
-                type="number"
                 value={jobDetails.odometer_in}
-                onChange={(e) => setJobDetails((p) => ({ ...p, odometer_in: e.target.value }))}
-                placeholder="12500"
+                onChange={(v) => setJobDetails((p) => ({ ...p, odometer_in: v }))}
+                placeholder="8,000"
               />
             </div>
             <div>
               <label className="label">Estimate (R)</label>
-              <input
+              <NumberInput
                 className="input"
-                type="number"
-                step="0.01"
+                isDecimal
                 value={jobDetails.estimated_cost}
-                onChange={(e) => setJobDetails((p) => ({ ...p, estimated_cost: e.target.value }))}
-                placeholder="1500.00"
+                onChange={(v) => setJobDetails((p) => ({ ...p, estimated_cost: v }))}
+                placeholder="1,500.00"
               />
             </div>
           </div>
+
+          {/* Customer acknowledgement */}
+          <button
+            type="button"
+            onClick={() => setCustomerAcknowledged(!customerAcknowledged)}
+            className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-colors text-left ${
+              customerAcknowledged
+                ? 'bg-green-50 border-green-300'
+                : 'bg-amber-50 border-amber-300'
+            }`}
+          >
+            {customerAcknowledged
+              ? <CheckCircle size={22} className="text-green-600 shrink-0" />
+              : <AlertCircle size={22} className="text-amber-500 shrink-0" />
+            }
+            <div>
+              <p className={`text-sm font-semibold ${customerAcknowledged ? 'text-green-800' : 'text-amber-800'}`}>
+                {customerAcknowledged ? 'Customer agreed to check-in terms' : 'Customer has not yet agreed'}
+              </p>
+              <p className={`text-xs mt-0.5 ${customerAcknowledged ? 'text-green-600' : 'text-amber-600'}`}>
+                {customerAcknowledged
+                  ? 'Tap to undo'
+                  : 'Show this to the customer — tap below to confirm they agree'}
+              </p>
+            </div>
+          </button>
+
+          {!customerAcknowledged && (
+            <button
+              type="button"
+              onClick={() => setCustomerAcknowledged(true)}
+              className="w-full py-4 rounded-xl bg-black text-white font-bold text-base tracking-wide active:scale-95 transition-transform"
+            >
+              I Agree ✓
+            </button>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-700 text-sm">

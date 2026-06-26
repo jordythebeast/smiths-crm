@@ -27,6 +27,25 @@ export async function createBike(formData: FormData) {
   redirect('/motorcycles')
 }
 
+export async function deleteBike(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  const { count: jobCount } = await supabase
+    .from('jobs')
+    .select('*', { count: 'exact', head: true })
+    .eq('bike_id', id)
+
+  if ((jobCount ?? 0) > 0) {
+    return { error: 'Cannot delete — this bike has jobs on record.' }
+  }
+
+  const { error } = await supabase.from('bikes').delete().eq('id', id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/motorcycles')
+  return {}
+}
+
 export async function updateBike(id: string, formData: FormData) {
   const supabase = await createClient()
 

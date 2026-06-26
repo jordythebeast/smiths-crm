@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Bike, Search, X } from 'lucide-react'
+import { Bike, Search, X, Pencil, Trash2 } from 'lucide-react'
+import { deleteBike } from '@/app/actions/bikes'
 
 type JobSummary = {
   id: string
@@ -57,10 +58,14 @@ function getBikeStatus(jobs: JobSummary[] | null): BikeStatus {
   return sorted[0].job_type === 'buy_sell' ? 'sold' : 'with_owner'
 }
 
-export default function BikeList({ bikes }: { bikes: BikeEntry[] }) {
+export default function BikeList({ bikes: initial }: { bikes: BikeEntry[] }) {
+  const [bikes, setBikes] = useState(initial)
   const [search, setSearch] = useState('')
   const [selectedMake, setSelectedMake] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<BikeStatus | 'all'>('all')
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const makes = Array.from(new Set(bikes.map((b) => b.make))).sort()
   const bikesWithStatus = bikes.map((b) => ({ ...b, _status: getBikeStatus(b.jobs) }))
@@ -87,6 +92,28 @@ export default function BikeList({ bikes }: { bikes: BikeEntry[] }) {
     setSearch('')
     setSelectedMake(null)
     setSelectedStatus('all')
+  }
+
+  function handleDeleteClick(id: string, hasJobs: boolean) {
+    setDeleteError(null)
+    if (hasJobs) {
+      setDeleteError('Cannot delete — this bike has jobs on record.')
+      return
+    }
+    setConfirmId(id)
+  }
+
+  function handleConfirmDelete(id: string) {
+    startTransition(async () => {
+      const result = await deleteBike(id)
+      if (result.error) {
+        setDeleteError(result.error)
+        setConfirmId(null)
+      } else {
+        setBikes((prev) => prev.filter((b) => b.id !== id))
+        setConfirmId(null)
+      }
+    })
   }
 
   return (
@@ -162,6 +189,12 @@ export default function BikeList({ bikes }: { bikes: BikeEntry[] }) {
         )}
       </div>
 
+      {deleteError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-700 text-sm">
+          {deleteError}
+        </div>
+      )}
+
       {/* Results */}
       {filtered.length === 0 ? (
         <div className="card p-8 text-center">
@@ -175,41 +208,83 @@ export default function BikeList({ bikes }: { bikes: BikeEntry[] }) {
         <div className="space-y-2">
           {filtered.map((bike) => {
             const statusCfg = STATUS_CONFIG[bike._status]
+            const hasJobs = (bike.jobs?.length ?? 0) > 0
+            const isConfirming = confirmId === bike.id
+
             return (
-              <Link
-                key={bike.id}
-                href={`/motorcycles/${bike.id}`}
-                className="card p-4 flex items-center gap-3 hover:shadow-sm transition-shadow block"
-              >
-                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
-                  <Bike size={18} className="text-gray-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-sm">
-                      {bike.year ? `${bike.year} ` : ''}{bike.make} {bike.model}
-                      {bike.color ? ` · ${bike.color}` : ''}
+              <div key={bike.id} className="card overflow-hidden">
+                {isConfirming ? (
+                  <div className="p-4 bg-red-50 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-red-800">
+                      Delete {bike.year ? `${bike.year} ` : ''}{bike.make} {bike.model}?
                     </p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusCfg.className}`}>
-                      {statusCfg.label}
-                    </span>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-600 hover:border-gray-400"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleConfirmDelete(bike.id)}
+                        disabled={isPending}
+                        className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                      >
+                        {isPending ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                    {bike.registration && (
-                      <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono font-semibold tracking-wider">
-                        {bike.registration}
-                      </span>
-                    )}
-                    {bike.vin && (
-                      <span className="text-xs text-gray-400 font-mono truncate">VIN: {bike.vin}</span>
-                    )}
+                ) : (
+                  <div className="flex items-center">
+                    <Link
+                      href={`/motorcycles/${bike.id}`}
+                      className="flex items-center gap-3 flex-1 p-4 min-w-0 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
+                        <Bike size={18} className="text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm">
+                            {bike.year ? `${bike.year} ` : ''}{bike.make} {bike.model}
+                            {bike.color ? ` · ${bike.color}` : ''}
+                          </p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusCfg.className}`}>
+                            {statusCfg.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          {bike.registration && (
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono font-semibold tracking-wider">
+                              {bike.registration}
+                            </span>
+                          )}
+                          {bike.vin && (
+                            <span className="text-xs text-gray-400 font-mono truncate">VIN: {bike.vin}</span>
+                          )}
+                        </div>
+                        {bike.customer && (
+                          <p className="text-xs text-gray-500 mt-0.5">{bike.customer.name}</p>
+                        )}
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                      <Link
+                        href={`/motorcycles/${bike.id}/edit`}
+                        className="p-2.5 text-gray-400 hover:text-black transition-colors rounded-lg"
+                      >
+                        <Pencil size={15} />
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteClick(bike.id, hasJobs)}
+                        className={`p-2.5 rounded-lg transition-colors ${!hasJobs ? 'text-gray-400 hover:text-red-500' : 'text-gray-200 cursor-not-allowed'}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                  {bike.customer && (
-                    <p className="text-xs text-gray-500 mt-0.5">{bike.customer.name}</p>
-                  )}
-                </div>
-                <ChevronRight size={16} className="text-gray-400 shrink-0" />
-              </Link>
+                )}
+              </div>
             )
           })}
         </div>

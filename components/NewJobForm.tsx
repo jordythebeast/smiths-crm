@@ -61,8 +61,9 @@ export default function NewJobForm({ customers, bikes }: Props) {
   const canProceedStep1 =
     customerMode === 'existing' ? selectedCustomerId !== '' : newCustomer.name.trim() !== ''
 
-  const canProceedStep2 =
-    bikeMode === 'existing' ? selectedBikeId !== '' : newBike.make.trim() !== '' && newBike.model.trim() !== ''
+  const canProceedStep2 = hasExistingBikes
+    ? (bikeMode === 'existing' ? selectedBikeId !== '' : newBike.make.trim() !== '' && newBike.model.trim() !== '')
+    : newBike.make.trim() !== '' && newBike.model.trim() !== ''
 
   function handleCreateJob() {
     setError(null)
@@ -206,7 +207,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
             disabled={!canProceedStep1}
             className="btn-primary w-full flex items-center justify-center gap-2"
           >
-            Next: Bike details
+            {customerMode === 'new' ? 'Confirm new customer' : 'Next: Bike details'}
             <ChevronRight size={16} />
           </button>
         </div>
@@ -337,7 +338,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
               disabled={!canProceedStep2}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              Next: Job details
+              {!hasExistingBikes || bikeMode === 'new' ? 'Confirm new bike' : 'Next: Job details'}
               <ChevronRight size={16} />
             </button>
           </div>

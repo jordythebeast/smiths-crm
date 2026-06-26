@@ -67,6 +67,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
 
   function handleCreateJob() {
     setError(null)
+    const isNewBike = !hasExistingBikes || bikeMode === 'new'
     startTransition(async () => {
       try {
         const jobId = await createJobReturnId({
@@ -75,13 +76,13 @@ export default function NewJobForm({ customers, bikes }: Props) {
           new_customer_name: customerMode === 'new' ? newCustomer.name : undefined,
           new_customer_phone: customerMode === 'new' ? newCustomer.phone || undefined : undefined,
           new_customer_email: customerMode === 'new' ? newCustomer.email || undefined : undefined,
-          bike_id: bikeMode === 'existing' ? selectedBikeId : undefined,
-          new_bike_make: bikeMode === 'new' ? newBike.make : undefined,
-          new_bike_model: bikeMode === 'new' ? newBike.model : undefined,
-          new_bike_year: bikeMode === 'new' && newBike.year ? Number(newBike.year) : null,
-          new_bike_registration: bikeMode === 'new' ? newBike.registration || undefined : undefined,
-          new_bike_color: bikeMode === 'new' ? newBike.color || undefined : undefined,
-          new_bike_vin: bikeMode === 'new' ? newBike.vin || undefined : undefined,
+          bike_id: !isNewBike ? selectedBikeId : undefined,
+          new_bike_make: isNewBike ? newBike.make : undefined,
+          new_bike_model: isNewBike ? newBike.model : undefined,
+          new_bike_year: isNewBike && newBike.year ? Number(newBike.year) : null,
+          new_bike_registration: isNewBike ? newBike.registration || undefined : undefined,
+          new_bike_color: isNewBike ? newBike.color || undefined : undefined,
+          new_bike_vin: isNewBike ? newBike.vin || undefined : undefined,
           customer_description: jobDetails.customer_description || undefined,
           damage_notes: jobDetails.damage_notes || undefined,
           odometer_in: jobDetails.odometer_in ? Number(jobDetails.odometer_in) : null,

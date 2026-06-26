@@ -89,9 +89,6 @@ export default async function JobsPage({
           <Link href="/jobs?type=buy_sell" className="shrink-0 py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-black">
             Buy &amp; Sell
           </Link>
-          <Link href="/jobs?type=accounting" className="shrink-0 py-3 px-4 text-sm font-medium border-b-2 border-red-600 text-red-600">
-            Accounting
-          </Link>
         </div>
 
         <div className="page-content space-y-4">
@@ -184,13 +181,6 @@ export default async function JobsPage({
         >
           Buy &amp; Sell
         </Link>
-        <Link
-          href="/jobs?type=accounting"
-          className="shrink-0 py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-black"
-        >
-          Accounting
-        </Link>
-
         <div className="flex-1" />
 
         {/* Status sub-filter */}

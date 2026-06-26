@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { JobStatus } from '@/lib/types'
 import { sendPushToAll } from './notifications'
+import { normaliseName } from '@/lib/utils'
 
 export async function createJob(formData: FormData) {
   const supabase = await createClient()
@@ -109,8 +110,8 @@ export async function createJobReturnId(params: CreateJobParams): Promise<string
       .from('bikes')
       .insert({
         customer_id: customerId,
-        make: params.new_bike_make!,
-        model: params.new_bike_model!,
+        make: normaliseName(params.new_bike_make!),
+        model: normaliseName(params.new_bike_model!),
         year: params.new_bike_year || null,
         registration: params.new_bike_registration || null,
         color: params.new_bike_color || null,

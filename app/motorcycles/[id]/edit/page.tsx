@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { updateBike } from '@/app/actions/bikes'
+import { COMMON_MAKES } from '@/lib/bike-makes'
 
 export default async function BikeEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -28,7 +29,10 @@ export default async function BikeEditPage({ params }: { params: Promise<{ id: s
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Make *</label>
-              <input className="input" name="make" defaultValue={bike.make} required />
+              <input className="input" name="make" list="bike-makes" defaultValue={bike.make} required />
+            <datalist id="bike-makes">
+              {COMMON_MAKES.map((m) => <option key={m} value={m} />)}
+            </datalist>
             </div>
             <div>
               <label className="label">Model *</label>

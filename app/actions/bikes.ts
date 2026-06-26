@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { normaliseName } from '@/lib/utils'
 
 export async function createBike(formData: FormData) {
   const supabase = await createClient()
@@ -11,8 +12,8 @@ export async function createBike(formData: FormData) {
     .from('bikes')
     .insert({
       customer_id: (formData.get('customer_id') as string) || null,
-      make: formData.get('make') as string,
-      model: formData.get('model') as string,
+      make: normaliseName(formData.get('make') as string),
+      model: normaliseName(formData.get('model') as string),
       year: formData.get('year') ? Number(formData.get('year')) : null,
       registration: (formData.get('registration') as string) || null,
       color: (formData.get('color') as string) || null,
@@ -32,8 +33,8 @@ export async function updateBike(id: string, formData: FormData) {
   const { error } = await supabase
     .from('bikes')
     .update({
-      make: formData.get('make') as string,
-      model: formData.get('model') as string,
+      make: normaliseName(formData.get('make') as string),
+      model: normaliseName(formData.get('model') as string),
       year: formData.get('year') ? Number(formData.get('year')) : null,
       registration: (formData.get('registration') as string) || null,
       color: (formData.get('color') as string) || null,

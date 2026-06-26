@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createJobReturnId } from '@/app/actions/jobs'
 import PhotoUpload from '@/components/PhotoUpload'
 import { ChevronRight, ChevronLeft, CheckCircle, Wrench, Tag } from 'lucide-react'
+import { COMMON_MAKES } from '@/lib/bike-makes'
 
 interface Customer { id: string; name: string; phone: string | null }
 interface Bike { id: string; customer_id: string | null; make: string; model: string; year: number | null; registration: string | null; color: string | null }
@@ -264,6 +265,7 @@ export default function NewJobForm({ customers, bikes }: Props) {
                   <label className="label">Make *</label>
                   <input
                     className="input"
+                    list="bike-makes"
                     value={newBike.make}
                     onChange={(e) => setNewBike((p) => ({ ...p, make: e.target.value }))}
                     placeholder="Honda"
@@ -454,6 +456,10 @@ export default function NewJobForm({ customers, bikes }: Props) {
           </button>
         </div>
       )}
+
+      <datalist id="bike-makes">
+        {COMMON_MAKES.map((make) => <option key={make} value={make} />)}
+      </datalist>
 
       {/* Progress bar — only shown once job type is chosen */}
       {step > 0 && (

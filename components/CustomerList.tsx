@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Phone, ChevronRight, Search, X, Plus } from 'lucide-react'
+import { Phone, Search, X, Plus, Pencil, Trash2 } from 'lucide-react'
+import { deleteCustomer } from '@/app/actions/customers'
 
 type CustomerEntry = {
   id: string
@@ -18,9 +19,13 @@ interface Props {
   customers: CustomerEntry[]
 }
 
-export default function CustomerList({ customers }: Props) {
+export default function CustomerList({ customers: initial }: Props) {
+  const [customers, setCustomers] = useState(initial)
   const [sort, setSort] = useState<SortMode>('az')
   const [search, setSearch] = useState('')
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const filtered = customers.filter((c) =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -35,6 +40,24 @@ export default function CustomerList({ customers }: Props) {
     }
     return a.name.localeCompare(b.name)
   })
+
+  function handleDeleteClick(id: string) {
+    setDeleteError(null)
+    setConfirmId(id)
+  }
+
+  function handleConfirmDelete(id: string) {
+    startTransition(async () => {
+      const result = await deleteCustomer(id)
+      if (result.error) {
+        setDeleteError(result.error)
+        setConfirmId(null)
+      } else {
+        setCustomers((prev) => prev.filter((c) => c.id !== id))
+        setConfirmId(null)
+      }
+    })
+  }
 
   if (!customers.length) {
     return (
@@ -74,9 +97,7 @@ export default function CustomerList({ customers }: Props) {
         <button
           onClick={() => setSort('az')}
           className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-            sort === 'az'
-              ? 'bg-black text-white border-black'
-              : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+            sort === 'az' ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
           }`}
         >
           A – Z
@@ -84,9 +105,7 @@ export default function CustomerList({ customers }: Props) {
         <button
           onClick={() => setSort('most_bikes')}
           className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-            sort === 'most_bikes'
-              ? 'bg-black text-white border-black'
-              : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+            sort === 'most_bikes' ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
           }`}
         >
           Most Bikes
@@ -97,6 +116,12 @@ export default function CustomerList({ customers }: Props) {
         {sorted.length} customer{sorted.length !== 1 ? 's' : ''}
         {search && ` matching "${search}"`}
       </p>
+
+      {deleteError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-700 text-sm">
+          {deleteError}
+        </div>
+      )}
 
       {sorted.length === 0 ? (
         <div className="card p-6 text-center">
@@ -110,31 +135,71 @@ export default function CustomerList({ customers }: Props) {
           {sorted.map((customer) => {
             const bikeCount = (customer.bikes as unknown as { count: number }[])?.[0]?.count ?? 0
             const jobCount = (customer.jobs as unknown as { count: number }[])?.[0]?.count ?? 0
+            const canDelete = bikeCount === 0 && jobCount === 0
+            const isConfirming = confirmId === customer.id
+
             return (
-              <Link
-                key={customer.id}
-                href={`/customers/${customer.id}`}
-                className="card p-4 flex items-center gap-3 hover:shadow-sm transition-shadow block"
-              >
-                <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    {customer.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{customer.name}</p>
-                  {customer.phone && (
-                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                      <Phone size={12} />
-                      {customer.phone}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {bikeCount} bike{bikeCount !== 1 ? 's' : ''} · {jobCount} job{jobCount !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <ChevronRight size={16} className="text-gray-400 shrink-0" />
-              </Link>
+              <div key={customer.id} className="card overflow-hidden">
+                {isConfirming ? (
+                  <div className="p-4 bg-red-50 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-red-800">Delete {customer.name}?</p>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-600 hover:border-gray-400"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleConfirmDelete(customer.id)}
+                        disabled={isPending}
+                        className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                      >
+                        {isPending ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Link
+                      href={`/customers/${customer.id}`}
+                      className="flex items-center gap-3 flex-1 p-4 min-w-0 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center shrink-0">
+                        <span className="text-white font-bold text-sm">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{customer.name}</p>
+                        {customer.phone && (
+                          <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                            <Phone size={12} />
+                            {customer.phone}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {bikeCount} bike{bikeCount !== 1 ? 's' : ''} · {jobCount} job{jobCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </Link>
+                    <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                      <Link
+                        href={`/customers/${customer.id}/edit`}
+                        className="p-2.5 text-gray-400 hover:text-black transition-colors rounded-lg"
+                      >
+                        <Pencil size={15} />
+                      </Link>
+                      <button
+                        onClick={() => canDelete ? handleDeleteClick(customer.id) : setDeleteError('Cannot delete — customer has bikes or jobs on record.')}
+                        className={`p-2.5 rounded-lg transition-colors ${canDelete ? 'text-gray-400 hover:text-red-500' : 'text-gray-200 cursor-not-allowed'}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>

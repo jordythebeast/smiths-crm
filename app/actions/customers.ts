@@ -55,6 +55,25 @@ export async function createBuyer(params: {
   return customer.id
 }
 
+export async function deleteCustomer(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  const [{ count: bikeCount }, { count: jobCount }] = await Promise.all([
+    supabase.from('bikes').select('*', { count: 'exact', head: true }).eq('customer_id', id),
+    supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('customer_id', id),
+  ])
+
+  if ((bikeCount ?? 0) > 0 || (jobCount ?? 0) > 0) {
+    return { error: 'Cannot delete — customer has bikes or jobs on record.' }
+  }
+
+  const { error } = await supabase.from('customers').delete().eq('id', id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/customers')
+  return {}
+}
+
 export async function updateCustomer(id: string, formData: FormData) {
   const supabase = await createClient()
 

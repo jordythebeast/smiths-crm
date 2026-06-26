@@ -62,3 +62,10 @@ export async function deleteTask(taskId: string) {
   const { error } = await supabase.from('tasks').delete().eq('id', taskId)
   if (error) throw new Error(error.message)
 }
+
+export async function updateTaskDate(taskId: string, due_date: string | null) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('tasks').update({ due_date }).eq('id', taskId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+}

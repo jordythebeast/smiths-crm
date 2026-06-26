@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { createTask, toggleTask, deleteTask } from '@/app/actions/tasks'
+import { useState, useTransition, useRef } from 'react'
+import { createTask, toggleTask, deleteTask, updateTaskDate } from '@/app/actions/tasks'
 import { Check, Trash2, Plus, Calendar } from 'lucide-react'
 import type { Task } from '@/lib/types'
 
@@ -13,6 +13,45 @@ interface Props {
 function isDue(dueDate: string | null): boolean {
   if (!dueDate) return false
   return new Date(dueDate) < new Date()
+}
+
+function TaskDatePicker({ task, onDateChange }: { task: Task; onDateChange: (date: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const overdue = isDue(task.due_date)
+
+  function openPicker() {
+    if (inputRef.current) {
+      if (typeof inputRef.current.showPicker === 'function') {
+        inputRef.current.showPicker()
+      } else {
+        inputRef.current.click()
+      }
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={openPicker}
+      className={`text-xs mt-0.5 flex items-center gap-1 w-fit ${overdue ? 'text-red-500 font-medium' : 'text-gray-400'}`}
+    >
+      <Calendar size={11} className="shrink-0" />
+      <span>
+        {task.due_date
+          ? new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
+          : 'Set date'}
+        {task.due_date && overdue && ' — overdue'}
+      </span>
+      <input
+        ref={inputRef}
+        type="date"
+        value={task.due_date ?? ''}
+        onChange={(e) => onDateChange(e.target.value)}
+        className="sr-only"
+        tabIndex={-1}
+      />
+    </button>
+  )
 }
 
 export default function TaskList({ jobId, initialTasks }: Props) {
@@ -45,6 +84,14 @@ export default function TaskList({ jobId, initialTasks }: Props) {
     })
   }
 
+  function handleDateChange(taskId: string, newDate: string) {
+    const due_date = newDate || null
+    setTasks((t) => t.map((t2) => t2.id === taskId ? { ...t2, due_date } : t2))
+    startTransition(async () => {
+      await updateTaskDate(taskId, due_date)
+    })
+  }
+
   const open = tasks.filter((t) => !t.completed)
   const done = tasks.filter((t) => t.completed)
 
@@ -59,13 +106,7 @@ export default function TaskList({ jobId, initialTasks }: Props) {
           </button>
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-800">{task.title}</p>
-            {task.due_date && (
-              <p className={`text-xs mt-0.5 flex items-center gap-1 ${isDue(task.due_date) ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                <Calendar size={11} />
-                {new Date(task.due_date + 'T12:00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
-                {isDue(task.due_date) && ' — overdue'}
-              </p>
-            )}
+            <TaskDatePicker task={task} onDateChange={(d) => handleDateChange(task.id, d)} />
           </div>
           <button
             onClick={() => handleDelete(task.id)}
